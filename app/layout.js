@@ -13,6 +13,9 @@ export const metadata = {
   description: 'Explore, leia e baixe livros do domínio público.',
 };
 
+// O layout lê a sessão (cookies) em cada pedido, por isso nada é pré-renderizado no build
+export const dynamic = 'force-dynamic';
+
 export const viewport = { width: 'device-width', initialScale: 1 };
 
 export default async function RootLayout({ children }) {
