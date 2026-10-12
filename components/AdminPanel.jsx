@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Pencil, Trash2, X, Library, Download, Eye, Loader2 } from 'lucide-react';
 import { supabaseBrowser } from '@/lib/supabase/client';
@@ -11,9 +11,10 @@ const label = 'mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-4
 const card = 'rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800';
 const primary = 'rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-brand-600/20 hover:bg-brand-700 disabled:opacity-50';
 
-export default function AdminPanel({ me, books, profiles, settings }) {
+export default function AdminPanel({ me, books, profiles, settings, submissions = [] }) {
   const [tab, setTab] = useState('books');
-  const tabs = { books: 'Livros', users: 'Utilizadores', ads: 'Publicidade (AdSense)' };
+  const pending = submissions.filter((s) => s.status === 'pendente').length;
+  const tabs = { books: 'Livros', subs: `Sugestões${pending ? ` (${pending})` : ''}`, users: 'Utilizadores', ads: 'Publicidade (AdSense)' };
   const stats = [
     [Library, 'Total de livros', books.length],
     [Download, 'Total de downloads', books.reduce((n, b) => n + b.downloads, 0)],
@@ -37,6 +38,7 @@ export default function AdminPanel({ me, books, profiles, settings }) {
         ))}
       </div>
       {tab === 'books' && <BooksTab books={books} />}
+      {tab === 'subs' && <SubmissionsTab submissions={submissions} />}
       {tab === 'users' && <UsersTab me={me} profiles={profiles} />}
       {tab === 'ads' && <AdsTab settings={settings} />}
     </div>
@@ -94,10 +96,10 @@ function BooksTab({ books }) {
   );
 }
 
-function BookForm({ book, onClose }) {
+function BookForm({ book, prefill, onClose, onSaved }) {
   const router = useRouter();
   const [f, setF] = useState({
-    title: book?.title || '', author: book?.author || '', category: book?.category || CATS[0],
+    title: book?.title || prefill?.title || '', author: book?.author || prefill?.author || '', category: book?.category || prefill?.category || CATS[0],
     synopsis: book?.synopsis || '', rating: book?.rating ?? 4.5, pages: book?.pages || '',
   });
   const [pdf, setPdf] = useState(null);
@@ -106,6 +108,21 @@ function BookForm({ book, onClose }) {
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  // Sugestão de utilizador: carrega o PDF automaticamente (e extrai a capa)
+  useEffect(() => {
+    if (!prefill?.pdfUrl) return;
+    (async () => {
+      try {
+        setBusy('A carregar o PDF da sugestão...');
+        const blob = await (await fetch(prefill.pdfUrl)).blob();
+        await onPdf(new File([blob], `${prefill.title}.pdf`, { type: 'application/pdf' }));
+      } catch {
+        setErr('Não foi possível carregar o PDF. Baixa-o e escolhe-o manualmente.');
+        setBusy('');
+      }
+    })();
+  }, []);
 
   // Ao escolher o PDF, a capa nativa (1ª página) é extraída e carregada automaticamente
   async function onPdf(file) {
@@ -152,6 +169,7 @@ function BookForm({ book, onClose }) {
       }
       const { error } = book ? await sb.from('books').update(row).eq('id', id) : await sb.from('books').insert({ ...row, id });
       if (error) throw error;
+      await onSaved?.();
       router.refresh();
       onClose();
     } catch (e2) {
@@ -259,5 +277,84 @@ function AdsTab({ settings }) {
       <div><label className={label}>Slot da página do livro e do leitor</label><input className={input} value={s.slot_book} onChange={(e) => setS({ ...s, slot_book: e.target.value.trim() })} /></div>
       <div className="flex items-center gap-3"><button className={primary}>Guardar</button><span className="text-sm text-slate-500">{msg}</span></div>
     </form>
+  );
+}
+
+function SubmissionsTab({ submissions }) {
+  const router = useRouter();
+  const [publishing, setPublishing] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const sb = () => supabaseBrowser();
+  const STATUS = { pendente: 'Em análise', aprovado: 'Publicado', rejeitado: 'Rejeitado' };
+
+  async function signed(path, name) {
+    const { data, error } = await sb().storage.from('submissions').createSignedUrl(path, 600, name ? { download: `${name}.pdf` } : undefined);
+    if (error) throw error;
+    return data.signedUrl;
+  }
+  async function download(s) {
+    setBusyId(s.id);
+    try { const a = document.createElement('a'); a.href = await signed(s.file_path, s.title); a.click(); } catch (e) { alert(e.message); }
+    setBusyId(null);
+  }
+  async function publish(s) {
+    setBusyId(s.id);
+    try { setPublishing({ sub: s, pdfUrl: s.file_path ? await signed(s.file_path) : null }); } catch (e) { alert(e.message); }
+    setBusyId(null);
+  }
+  async function approved() {
+    const s = publishing.sub;
+    await sb().from('submissions').update({ status: 'aprovado', file_path: null }).eq('id', s.id);
+    if (s.file_path) await sb().storage.from('submissions').remove([s.file_path]);
+  }
+  async function reject(s) {
+    if (!confirm('Rejeitar esta sugestão?')) return;
+    await sb().from('submissions').update({ status: 'rejeitado', file_path: null }).eq('id', s.id);
+    if (s.file_path) await sb().storage.from('submissions').remove([s.file_path]);
+    router.refresh();
+  }
+  async function del(s) {
+    if (!confirm('Excluir esta sugestão?')) return;
+    if (s.file_path) await sb().storage.from('submissions').remove([s.file_path]);
+    await sb().from('submissions').delete().eq('id', s.id);
+    router.refresh();
+  }
+
+  const act = 'rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50';
+  return (
+    <>
+      <div className={`${card} overflow-x-auto`}>
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/80">
+            <tr>{['Livro', 'Enviado por', 'Estado', 'Ações'].map((h) => <th key={h} className="px-6 py-3">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+            {submissions.map((s) => (
+              <tr key={s.id}>
+                <td className="px-6 py-3">
+                  <b className="block">{s.title}</b>
+                  <span className="text-xs text-slate-400">{[s.author, s.category].filter(Boolean).join(' · ')}</span>
+                  {s.note && <p className="mt-1 max-w-xs text-xs italic text-slate-500">“{s.note}”</p>}
+                </td>
+                <td className="px-6 py-3 text-xs">{s.user_email || 'Visitante'}<br /><span className="text-slate-400">{new Date(s.created_at).toLocaleDateString('pt-PT')}</span></td>
+                <td className="px-6 py-3">{STATUS[s.status]}</td>
+                <td className="px-6 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    {s.file_path && <button disabled={busyId === s.id} onClick={() => download(s)} className={`${act} bg-slate-100 dark:bg-slate-700`}>Baixar PDF</button>}
+                    {s.status === 'pendente' && <>
+                      <button disabled={busyId === s.id} onClick={() => publish(s)} className={`${act} bg-brand-600 text-white`}>Publicar</button>
+                      <button onClick={() => reject(s)} className={`${act} bg-slate-100 dark:bg-slate-700`}>Rejeitar</button>
+                    </>}
+                    <button onClick={() => del(s)} className={`${act} text-red-600`}>Excluir</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {!submissions.length && <tr><td colSpan={4} className="px-6 py-10 text-center text-slate-500">Ainda não há sugestões.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {publishing && <BookForm prefill={{ ...publishing.sub, pdfUrl: publishing.pdfUrl }} onClose={() => setPublishing(null)} onSaved={approved} />}
+    </>
   );
 }

@@ -19,10 +19,11 @@ export default async function AdminPage() {
     );
   }
 
-  const [{ data: books }, { data: profiles }, { data: settings }] = await Promise.all([
+  const [{ data: books }, { data: profiles }, { data: settings }, { data: submissions }] = await Promise.all([
     sb.from('books').select('*').order('created_at', { ascending: false }),
     sb.from('profiles').select('*').order('created_at', { ascending: false }),
     sb.from('settings').select('*').single(),
+    sb.from('submissions').select('*').order('created_at', { ascending: false }),
   ]);
-  return <AdminPanel me={user.id} books={books || []} profiles={profiles || []} settings={settings} />;
+  return <AdminPanel me={user.id} books={books || []} profiles={profiles || []} settings={settings} submissions={submissions || []} />;
 }

@@ -1,5 +1,4 @@
 import './globals.css';
-import Script from 'next/script';
 import { Inter, Merriweather } from 'next/font/google';
 import Header from '@/components/Header';
 import TopProgress from '@/components/TopProgress';
@@ -9,6 +8,8 @@ const sans = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const serif = Merriweather({ subsets: ['latin'], weight: ['300', '400', '700'], variable: '--font-serif' });
 
 export const metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+  openGraph: { siteName: 'BookVault', locale: 'pt_PT', type: 'website' },
   title: 'BookVault - Repositório Digital de Livros Gratuitos',
   description: 'Explore, leia e baixe livros do domínio público.',
 };
@@ -23,15 +24,15 @@ export default async function RootLayout({ children }) {
   const ads = s.adsense_enabled && s.adsense_client;
   return (
     <html lang="pt">
-      <body className={`${sans.variable} ${serif.variable} min-h-screen flex flex-col overflow-x-hidden font-sans bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100`}>
+      <head>
         {ads && (
-          <Script
-            async
-            strategy="afterInteractive"
-            crossOrigin="anonymous"
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${s.adsense_client}`}
-          />
+          <>
+            <meta name="google-adsense-account" content={s.adsense_client} />
+            <script async crossOrigin="anonymous" src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${s.adsense_client}`} />
+          </>
         )}
+      </head>
+      <body className={`${sans.variable} ${serif.variable} min-h-screen flex flex-col overflow-x-hidden font-sans bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100`}>
         <TopProgress />
         <Header />
         <main className="flex-grow">{children}</main>
