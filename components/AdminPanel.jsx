@@ -14,7 +14,7 @@ const primary = 'rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-medium text-wh
 export default function AdminPanel({ me, books, profiles, settings, submissions = [] }) {
   const [tab, setTab] = useState('books');
   const pending = submissions.filter((s) => s.status === 'pendente').length;
-  const tabs = { books: 'Livros', subs: `Sugestões${pending ? ` (${pending})` : ''}`, users: 'Utilizadores', ads: 'Publicidade (AdSense)' };
+  const tabs = { books: 'Livros', subs: `Sugestões${pending ? ` (${pending})` : ''}`, users: 'Utilizadores', chat: 'Comunidade', ads: 'Publicidade (AdSense)' };
   const stats = [
     [Library, 'Total de livros', books.length],
     [Download, 'Total de downloads', books.reduce((n, b) => n + b.downloads, 0)],
@@ -40,6 +40,7 @@ export default function AdminPanel({ me, books, profiles, settings, submissions 
       {tab === 'books' && <BooksTab books={books} />}
       {tab === 'subs' && <SubmissionsTab submissions={submissions} />}
       {tab === 'users' && <UsersTab me={me} profiles={profiles} />}
+      {tab === 'chat' && <ChatTab settings={settings} />}
       {tab === 'ads' && <AdsTab settings={settings} />}
     </div>
   );
@@ -261,8 +262,8 @@ function AdsTab({ settings }) {
   const [msg, setMsg] = useState('');
   async function save(e) {
     e.preventDefault();
-    const { id, ...rest } = s;
-    const { error } = await supabaseBrowser().from('settings').update(rest).eq('id', 1);
+    const { adsense_enabled, adsense_client, slot_feed, slot_book } = s;
+    const { error } = await supabaseBrowser().from('settings').update({ adsense_enabled, adsense_client, slot_feed, slot_book }).eq('id', 1);
     setMsg(error ? error.message : 'Guardado.');
     router.refresh();
   }
@@ -356,5 +357,48 @@ function SubmissionsTab({ submissions }) {
       </div>
       {publishing && <BookForm prefill={{ ...publishing.sub, pdfUrl: publishing.pdfUrl }} onClose={() => setPublishing(null)} onSaved={approved} />}
     </>
+  );
+}
+
+function ChatTab({ settings }) {
+  const router = useRouter();
+  const [on, setOn] = useState(settings?.chat_enabled !== false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function toggle() {
+    setBusy(true); setMsg('');
+    const next = !on;
+    const { error } = await supabaseBrowser().from('settings').update({ chat_enabled: next }).eq('id', 1);
+    setBusy(false);
+    if (error) return setMsg(/chat_enabled/.test(error.message) ? 'Corre primeiro o ficheiro supabase/update_6.sql no Supabase.' : error.message);
+    setOn(next);
+    router.refresh();
+  }
+  async function clearAll() {
+    if (!confirm('Apagar TODAS as mensagens do chat? Não dá para desfazer.')) return;
+    const { error } = await supabaseBrowser().from('messages').delete().gte('id', 0);
+    setMsg(error ? error.message : 'Todas as mensagens foram apagadas.');
+  }
+
+  return (
+    <div className={`${card} max-w-xl space-y-5 p-6`}>
+      <div className="flex items-center gap-3">
+        <span className={`h-3 w-3 rounded-full ${on ? 'bg-brand-500' : 'bg-red-500'}`} />
+        <div>
+          <div className="font-bold">Chat da comunidade: {on ? 'ligado' : 'desligado'}</div>
+          <p className="text-sm text-slate-500">
+            {on ? 'Qualquer visitante pode ler e escrever em /comunidade.' : 'Fechado para o público. Só tu vês as mensagens.'}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <button onClick={toggle} disabled={busy} className={`rounded-xl px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50 ${on ? 'bg-red-600 hover:bg-red-700' : 'bg-brand-600 hover:bg-brand-700'}`}>
+          {busy ? 'A guardar...' : on ? 'Desligar o chat agora' : 'Ligar o chat'}
+        </button>
+        <button onClick={clearAll} className="rounded-xl bg-slate-100 px-5 py-2.5 text-sm font-medium dark:bg-slate-700">Apagar todas as mensagens</button>
+      </div>
+      {msg && <p className="text-sm text-slate-500">{msg}</p>}
+    </div>
   );
 }
