@@ -375,11 +375,6 @@ function ChatTab({ settings }) {
     setOn(next);
     router.refresh();
   }
-  async function clearAll() {
-    if (!confirm('Apagar TODAS as mensagens do chat? Não dá para desfazer.')) return;
-    const { error } = await supabaseBrowser().from('messages').delete().gte('id', 0);
-    setMsg(error ? error.message : 'Todas as mensagens foram apagadas.');
-  }
 
   return (
     <div className={`${card} max-w-xl space-y-5 p-6`}>
@@ -396,8 +391,12 @@ function ChatTab({ settings }) {
         <button onClick={toggle} disabled={busy} className={`rounded-xl px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50 ${on ? 'bg-red-600 hover:bg-red-700' : 'bg-brand-600 hover:bg-brand-700'}`}>
           {busy ? 'A guardar...' : on ? 'Desligar o chat agora' : 'Ligar o chat'}
         </button>
-        <button onClick={clearAll} className="rounded-xl bg-slate-100 px-5 py-2.5 text-sm font-medium dark:bg-slate-700">Apagar todas as mensagens</button>
+        <a href="/comunidade" className="rounded-xl bg-slate-100 px-5 py-2.5 text-sm font-medium dark:bg-slate-700">Abrir o chat para moderar</a>
       </div>
+      <p className="text-xs text-slate-500">
+        Desligar não apaga nada: as mensagens ficam guardadas e voltam quando ligares de novo. Para apagar, abre o chat e usa o ícone do lixo
+        nas mensagens que escolheres (o ícone ao lado bloqueia a pessoa).
+      </p>
       {msg && <p className="text-sm text-slate-500">{msg}</p>}
     </div>
   );
