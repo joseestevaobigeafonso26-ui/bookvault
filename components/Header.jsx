@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { BookOpen, ShieldCheck, LogIn, LogOut, MessageCircle } from 'lucide-react';
 import ShareBook from './ShareBook';
+import InstallApp from './InstallApp';
 import { supabaseServer } from '@/lib/supabase/server';
 
 export default async function Header() {
@@ -19,10 +20,11 @@ export default async function Header() {
           <span className="w-10 h-10 rounded-xl bg-brand-600 grid place-items-center text-white shadow-lg shadow-brand-600/30">
             <BookOpen size={22} />
           </span>
-          <span className="font-bold text-xl tracking-tight">Book<span className="text-brand-600">Vault</span></span>
+          <span className="hidden min-[420px]:inline font-bold text-xl tracking-tight">Book<span className="text-brand-600">Vault</span></span>
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <Link href="/comunidade" className={btn}><MessageCircle size={16} /> <span className="hidden sm:inline">Comunidade</span></Link>
+          <InstallApp className={btn} />
           <ShareBook className={btn} />
           {role === 'admin' && (
             <Link href="/admin" className={btn}><ShieldCheck size={16} className="text-amber-500" /> <span className="hidden sm:inline">Painel Admin</span></Link>

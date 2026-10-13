@@ -63,3 +63,16 @@ export function AdminSkeleton() {
     </div>
   );
 }
+
+export function GridSkeleton() {
+  return (
+    <div className={grid}>
+      {[...Array(10)].map((_, i) => (
+        <div key={i} className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-800">
+          <Sk className="aspect-[2/3] !rounded-none" />
+          <div className="space-y-2 p-3"><Sk className="h-3 w-1/3" /><Sk className="h-4 w-4/5" /><Sk className="h-3 w-1/2" /></div>
+        </div>
+      ))}
+    </div>
+  );
+}

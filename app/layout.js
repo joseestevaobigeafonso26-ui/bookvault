@@ -2,6 +2,7 @@ import './globals.css';
 import { Inter, Merriweather } from 'next/font/google';
 import Header from '@/components/Header';
 import TopProgress from '@/components/TopProgress';
+import PwaRegister from '@/components/PwaRegister';
 import { getSettings } from '@/lib/settings';
 
 const sans = Inter({ subsets: ['latin'], variable: '--font-sans' });
@@ -10,6 +11,8 @@ const serif = Merriweather({ subsets: ['latin'], weight: ['300', '400', '700'], 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
   openGraph: { siteName: 'BookVault', locale: 'pt_PT', type: 'website' },
+  icons: { icon: '/icons/favicon-32.png', apple: '/icons/apple-touch-icon.png' },
+  appleWebApp: { capable: true, title: 'BookVault', statusBarStyle: 'default' },
   title: 'BookVault - Repositório Digital de Livros Gratuitos',
   description: 'Explore, leia e baixe livros do domínio público.',
 };
@@ -17,7 +20,7 @@ export const metadata = {
 // O layout lê a sessão (cookies) em cada pedido, por isso nada é pré-renderizado no build
 export const dynamic = 'force-dynamic';
 
-export const viewport = { width: 'device-width', initialScale: 1 };
+export const viewport = { width: 'device-width', initialScale: 1, themeColor: '#16a34a' };
 
 export default async function RootLayout({ children }) {
   const s = await getSettings();
@@ -34,6 +37,7 @@ export default async function RootLayout({ children }) {
       </head>
       <body className={`${sans.variable} ${serif.variable} min-h-screen flex flex-col overflow-x-hidden font-sans bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100`}>
         <TopProgress />
+        <PwaRegister />
         <Header />
         <main className="flex-grow">{children}</main>
         <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-8 text-center text-sm text-slate-500">
